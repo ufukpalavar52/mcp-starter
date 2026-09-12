@@ -4,4 +4,5 @@
 *.env.local
 !*.env.example
 
+logs/*.log
 observability/logs/*.log

@@ -1,0 +1,230 @@
+# The whole stack: infrastructure, the six services, and the order they need.
+#
+# The sources live in six repositories in six directories, so every build context is a
+# path from .env. Clone them wherever you like and point the variables at them; the
+# defaults assume they sit beside this one.
+#
+# Start order is not a preference here. mcp-config hands every other service its
+# settings, and a service that starts while it is down falls back to local defaults
+# silently — which is the hardest kind of fault to find later.
+
+name: mcp
+
+x-config-client: &config-client
+  # The same pair everywhere: every service authenticates to mcp-config with it.
+  CONFIG_SERVER_URL: http://mcp-config:8888
+  CONFIG_USER: ${CONFIG_USER:-mcp}
+  CONFIG_PASSWORD: ${CONFIG_PASSWORD:?set CONFIG_PASSWORD in .env}
+
+services:
+  # ------------------------------------------------------------------ infrastructure
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-mcp}
+      POSTGRES_USER: ${DB_USER:-mcp}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    # Not published to the host by default. Something is usually already on 5432, and a
+    # database reachable from outside is a database somebody else can reach. Uncomment
+    # to connect with psql.
+    # ports:
+    #   - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-mcp} -d ${DB_DATABASE:-mcp}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${QUEUE_USER:-mcp}
+      RABBITMQ_DEFAULT_PASS: ${QUEUE_PASSWORD:?set QUEUE_PASSWORD in .env}
+    ports:
+      # The management UI only. The broker port stays inside the network.
+      - "127.0.0.1:${RABBITMQ_UI_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------ schema
+
+  # Runs once, applies what is pending, exits. Safe to re-run: Liquibase skips
+  # changesets already in DATABASECHANGELOG.
+  #
+  # The gateway waits for this to succeed. The application performs no DDL of its own —
+  # it runs with ddl-auto: none — so a schema that was never applied shows up as a query
+  # error at run time rather than at start up.
+  liquibase:
+    image: liquibase/liquibase:4.31
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${MCP_GATEWAY_PATH:-../mcp-gateway}/db/changelog:/liquibase/changelog:ro
+    command:
+      - --changelog-file=db.changelog-master.yaml
+      - --search-path=/liquibase/changelog
+      - --url=jdbc:postgresql://postgres:5432/${DB_DATABASE:-mcp}
+      - --username=${DB_USER:-mcp}
+      - --password=${DB_PASSWORD}
+      - update
+
+  # ------------------------------------------------------------------ services
+
+  mcp-config:
+    build:
+      context: ${MCP_CONFIG_PATH:-../mcp-config}
+    environment:
+      # This one does not read from a config server; it is the config server.
+      CONFIG_USER: ${CONFIG_USER:-mcp}
+      CONFIG_PASSWORD: ${CONFIG_PASSWORD}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-mcp}
+      DB_USER: ${DB_USER:-mcp}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      QUEUE_HOST: rabbitmq
+      QUEUE_PORT: 5672
+      QUEUE_USER: ${QUEUE_USER:-mcp}
+      QUEUE_PASSWORD: ${QUEUE_PASSWORD}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY in .env}
+      ROUTER_API_KEY: ${ROUTER_API_KEY:-}
+      MCP_CIPHER_TOKEN: ${MCP_CIPHER_TOKEN:?set MCP_CIPHER_TOKEN in .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      MCP_LOG_DIR: /var/log/mcp
+    volumes:
+      - ${MCP_LOG_DIR:-./logs}:/var/log/mcp
+    healthcheck:
+      # A 401 is the answer this is looking for: it means the server is up and asking
+      # who is calling, which is all a health check needs to know. Fetching a real
+      # document would mean credentials in the check, and busybox wget — which is what
+      # this image has — does not take --user/--password anyway.
+      #
+      # Actuator is not on the classpath, so there is no /health to ask instead.
+      test: ["CMD-SHELL", "wget -S -q -O /dev/null http://localhost:8888/mcp-gateway/default 2>&1 | grep -q 'HTTP/1.1 401'"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 40s
+    restart: unless-stopped
+
+  mcp-cipher:
+    build:
+      context: ${MCP_CIPHER_PATH:-../mcp-cipher}
+    environment:
+      <<: *config-client
+      MCP_CIPHER_KEY_V1: ${MCP_CIPHER_KEY_V1:?set MCP_CIPHER_KEY_V1 in .env}
+      MCP_CIPHER_ACTIVE_KEY: ${MCP_CIPHER_ACTIVE_KEY:-v1}
+      MCP_CIPHER_TOKEN: ${MCP_CIPHER_TOKEN}
+      MCP_CIPHER_ADDRESS: 0.0.0.0:9090
+      MCP_LOG_DIR: /var/log/mcp
+    volumes:
+      - ${MCP_LOG_DIR:-./logs}:/var/log/mcp
+    depends_on:
+      mcp-config:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mcp-gateway:
+    build:
+      context: ${MCP_GATEWAY_PATH:-../mcp-gateway}
+    environment:
+      <<: *config-client
+      MCP_LOG_DIR: /var/log/mcp
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
+    volumes:
+      - ${MCP_LOG_DIR:-./logs}:/var/log/mcp
+    depends_on:
+      liquibase:
+        condition: service_completed_successfully
+      mcp-config:
+        condition: service_healthy
+      mcp-cipher:
+        condition: service_started
+    restart: unless-stopped
+
+  mcp-server:
+    build:
+      context: ${MCP_SERVER_PATH:-../mcp-server}
+    environment:
+      <<: *config-client
+      HOST: 0.0.0.0
+      PORT: 8000
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PUBLISHER_TOKEN: ${PUBLISHER_TOKEN:-}
+      MCP_LOG_DIR: /var/log/mcp
+    ports:
+      - "127.0.0.1:${MCP_SERVER_PORT:-8000}:8000"
+    volumes:
+      - ${MCP_LOG_DIR:-./logs}:/var/log/mcp
+    depends_on:
+      mcp-config:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mcp-action:
+    build:
+      context: ${MCP_ACTION_PATH:-../mcp-action}
+    environment:
+      <<: *config-client
+      MCP_LOG_DIR: /var/log/mcp
+    volumes:
+      - ${MCP_LOG_DIR:-./logs}:/var/log/mcp
+    depends_on:
+      mcp-config:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mcp-cipher:
+        condition: service_started
+    restart: unless-stopped
+
+  mcp-panel:
+    build:
+      context: ${MCP_PANEL_PATH:-../mcp-panel}
+    environment:
+      CONFIG_SERVER_URL: http://mcp-config:8888
+      CONFIG_USER: ${CONFIG_USER:-mcp}
+      CONFIG_PASSWORD: ${CONFIG_PASSWORD}
+      # The browser calls this, so it is an address on the host rather than inside the
+      # network. A last resort only: the real value comes from mcp-config.
+      NEXT_PUBLIC_API_URL: http://localhost:${GATEWAY_PORT:-8080}
+    ports:
+      - "127.0.0.1:${PANEL_PORT:-3000}:3000"
+    depends_on:
+      mcp-gateway:
+        condition: service_started
+      mcp-config:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
