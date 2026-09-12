@@ -1,0 +1,16 @@
+# Provisioned so the first thing anybody sees is their logs, not a setup form.
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    uid: mcp-loki
+    url: http://loki:3100
+    isDefault: true
+    editable: false
+    jsonData:
+      # A query that would return more than this is a query that needs narrowing, not a
+      # browser that needs to render fifty thousand rows.
+      maxLines: 2000
+      timeout: 60

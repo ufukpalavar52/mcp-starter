@@ -1,0 +1,130 @@
+// What reaches Loki, and how it is labelled.
+//
+// Alloy rather than Promtail: Promtail reached end of life in early 2026 and takes no
+// further fixes. The file-tailing here is the same job it did.
+
+// ---------------------------------------------------------------- files
+
+// Which files count. `*.log` by default; narrow it with MCP_LOG_GLOB when the directory
+// holds more than this stack's logs — pointing at /tmp with the default pattern would
+// collect every unrelated .log somebody's tooling has left there.
+local.file_match "mcp" {
+	path_targets = [
+		{__path__ = "/var/log/mcp/" + coalesce(sys.env("MCP_LOG_GLOB"), "*.log")},
+		{__path__ = "/var/log/mcp/*/" + coalesce(sys.env("MCP_LOG_GLOB"), "*.log")},
+	]
+	sync_period = "10s"
+}
+
+// The service name comes from the file name: mcp-gateway.log is service mcp-gateway.
+//
+// One label, deliberately. Every distinct combination of labels is a separate stream in
+// Loki, and a label that varies per line — a request id, a run ref — multiplies the
+// streams until queries slow to a crawl. Those belong in the line, where a query can still
+// find them.
+discovery.relabel "mcp" {
+	targets = local.file_match.mcp.targets
+
+	rule {
+		source_labels = ["__path__"]
+		regex         = ".*/([^/]+)\\.log"
+		target_label  = "service_name"
+		replacement   = "$1"
+	}
+
+	rule {
+		target_label = "source"
+		replacement  = "file"
+	}
+}
+
+loki.source.file "mcp" {
+	targets    = discovery.relabel.mcp.output
+	forward_to = [loki.process.mcp.receiver]
+
+	// Where each file was last read, so a restart does not replay everything already sent.
+	tail_from_end = false
+}
+
+// ---------------------------------------------------------------- shaping
+
+loki.process "mcp" {
+	forward_to = [loki.write.default.receiver]
+
+	// A Java stack trace is one event written across forty lines. Without this each line
+	// arrives as its own entry, out of order with whatever else was logging at the time,
+	// and the trace becomes unreadable exactly when somebody needs it.
+	stage.multiline {
+		// A new entry starts at a timestamp: 2026-09-11 or 2026-09-11T09:15:00.
+		firstline     = "^\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}"
+		max_wait_time = "3s"
+		max_lines     = 256
+	}
+
+	// The level, as a label. This one is worth a stream: "show me the errors" is the first
+	// question anybody asks, and it has a handful of values rather than thousands.
+	stage.regex {
+		expression = "(?i)\\b(?P<level>TRACE|DEBUG|INFO|WARN(?:ING)?|ERROR|FATAL|CRITICAL)\\b"
+	}
+
+	// Upper-cased, and WARNING folded into WARN.
+	//
+	// The match is case-insensitive but keeps whatever case the line used, so the six
+	// services between them produced ERROR, Error and error as three separate labels —
+	// and `level="ERROR"` quietly answered with a third of the errors. A filter that
+	// silently returns some of the matches is worse than one that returns none.
+	// Two stages rather than one pipeline. A template that fails leaves the value
+	// untouched and says nothing, so chaining them meant one bad call silently undoing
+	// both — which is how ERROR, Error and error stayed three labels through a fix that
+	// looked applied.
+	stage.template {
+		source   = "level"
+		template = "{{ .level | ToUpper }}"
+	}
+
+	stage.template {
+		source   = "level"
+		template = "{{ .level | replace \"WARNING\" \"WARN\" }}"
+	}
+
+	stage.labels {
+		values = {level = ""}
+	}
+}
+
+// ---------------------------------------------------------------- receivers
+
+// For a service that would rather push than write a file. Spring Boot's Loki appender and
+// Python's logging handler can send straight to Loki on 3100; this endpoint is here for
+// anything that speaks OTLP instead.
+otelcol.receiver.otlp "default" {
+	http {
+		endpoint = "0.0.0.0:4318"
+	}
+
+	grpc {
+		endpoint = "0.0.0.0:4317"
+	}
+
+	output {
+		logs = [otelcol.exporter.loki.default.input]
+	}
+}
+
+otelcol.exporter.loki "default" {
+	forward_to = [loki.write.default.receiver]
+}
+
+// ---------------------------------------------------------------- out
+
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+}
+
+// No write-ahead log here on purpose. Alloy's `wal` block is experimental and turning it on
+// means running the whole process with --stability.level=experimental, which is a large
+// thing to switch on for a small guarantee. The cost of leaving it off: if Alloy is killed
+// between reading a line and delivering it, that line is lost — its position file records
+// what was read, not what arrived. A Loki restart on its own is fine; Alloy retries.

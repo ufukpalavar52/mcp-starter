@@ -1,0 +1,5 @@
+# Templates only. A real .env here is a credential sitting next to a README.
+.env
+*.env
+*.env.local
+!*.env.example

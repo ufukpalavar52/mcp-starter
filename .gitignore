@@ -1,0 +1,7 @@
+# Credentials never belong in this directory, whatever the name.
+.env
+*.env
+*.env.local
+!*.env.example
+
+observability/logs/*.log

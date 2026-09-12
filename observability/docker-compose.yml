@@ -1,0 +1,80 @@
+# Loki, Grafana and Alloy — a place for the stack's logs to go.
+#
+# The six MCP services run as local processes, not containers, so nothing here collects
+# anything by itself: Alloy tails the files they write. Point MCP_LOG_DIR at wherever those
+# files are and the labels follow the file names.
+#
+# Every port is bound to 127.0.0.1. This is a log store with no authentication in front of
+# it; on a shared network that is a copy of production output available to anyone who asks.
+
+name: mcp-observability
+
+services:
+  loki:
+    image: grafana/loki:3.7.2
+    container_name: mcp-loki
+    command: -config.file=/etc/loki/loki-config.yaml
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki-data:/loki
+    # No healthcheck. The image is distroless — no shell, no wget, no curl — so there is
+    # nothing inside it to run one with, and a `test:` line here would fail forever and
+    # hold back everything that waits on it. Readiness is checked from outside instead:
+    #   curl -s localhost:3100/ready
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:v1.19.2
+    container_name: mcp-alloy
+    environment:
+      MCP_LOG_GLOB: ${MCP_LOG_GLOB:-*.log}
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    ports:
+      # The Alloy UI: which files it found, what it is sending, and why it is not.
+      - "127.0.0.1:12345:12345"
+      # OTLP, for a service that would rather push than write a file.
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      # Read-only, and it only ever reads. A log shipper with write access to the directory
+      # it is reading is a way to lose the evidence you are collecting.
+      - ${MCP_LOG_DIR:-./logs}:/var/log/mcp:ro
+    # Start order only, for the reason above. Alloy retries a push that finds Loki still
+    # starting, so the cost of going first is a delay rather than lost lines.
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:13.2.1
+    container_name: mcp-grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      # Off on purpose. Anonymous admin is the convenient choice for a local stack and the
+      # one that turns into an open dashboard the first time this file is copied somewhere
+      # with an address.
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_LOG_LEVEL: warn
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+volumes:
+  loki-data:
+  alloy-data:
+  grafana-data:
