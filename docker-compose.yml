@@ -155,6 +155,16 @@ services:
       context: ${MCP_GATEWAY_PATH:-../mcp-gateway}
     environment:
       <<: *config-client
+      # The first administrator, created once into an empty users table.
+      #
+      # Given straight to the gateway rather than through mcp-config, although the
+      # setting is declared there. The config server's overrides reach *every*
+      # application, so routing an admin password through it would hand it to the panel
+      # as well — and the panel has no use for it. A secret goes to the one service that
+      # needs it.
+      MCP_ADMIN_EMAIL: ${MCP_ADMIN_EMAIL:-}
+      MCP_ADMIN_PASSWORD: ${MCP_ADMIN_PASSWORD:-}
+      MCP_ADMIN_NAME: ${MCP_ADMIN_NAME:-Administrator}
       MCP_LOG_DIR: /var/log/mcp
     ports:
       - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"

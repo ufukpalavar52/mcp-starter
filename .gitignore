@@ -6,3 +6,6 @@
 
 logs/*.log
 observability/logs/*.log
+
+# IDE files. GoLand writes these the moment a repository appears.
+.idea/
