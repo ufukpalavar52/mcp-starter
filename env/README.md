@@ -1,8 +1,9 @@
 # Environment
 
-What each service needs to start, as templates. **Every secret is blank** — passwords, the
-JWT signing key, the cipher keys and the API tokens. Addresses, ports and usernames are
-real, because they describe the shape of the stack and none of them is a credential.
+What each service needs to start, as templates. **Every value here is an example**, not a
+working one: the addresses and ports are the usual defaults, and anything secret reads
+`change-me` or names the command that generates it. Nothing from a real installation is in
+these files.
 
 These are not the working files. The services read `.env` from their own repositories; these
 say what has to be in one.
