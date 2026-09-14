@@ -30,7 +30,7 @@ when they ask "why is it like this?", and that somebody is usually us.
 | 16 | [16-approving-a-command.md](16-approving-a-command.md) | Turning a step down, and approving the one shown |
 | 17 | [17-saying-what-is-happening.md](17-saying-what-is-happening.md) | The wait before a card, and the delete dialog |
 | 18 | [18-logs.md](18-logs.md) | Loki, and getting each service to write a file |
-| 19 | [19-containers.md](19-containers.md) | Compose for the whole stack, and first-run access |
+| 19 | [19-containers.md](19-containers.md) | Compose for the whole stack, fetching the sources, and first-run access |
 
 ## Where the tests stand
 

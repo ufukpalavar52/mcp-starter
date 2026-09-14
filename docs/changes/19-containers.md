@@ -94,6 +94,25 @@ It is gone. `count()` and `save()` are each atomic, and the window between them 
 matters if two gateways start against an empty database at the same instant, where the
 unique index on email decides.
 
+## Fetching the sources
+
+Six repositories in six directories, and a compose file whose build contexts come from
+`.env`. `clone.sh` fetches them and writes that file, pointed at wherever they landed.
+
+Optional: somebody who already has the sources sets `MCP_*_PATH` and never runs it. What
+it saves is six `git clone` lines and the chance of mistyping one.
+
+Three things it will not do, and each is the reason a setup script gets run twice rather
+than once:
+
+- **Pulls with `--ff-only`.** Its job is to fetch code, not to decide what to do about
+  somebody's local commits. A merge it started and could not finish would leave a working
+  tree in a state nobody asked for.
+- **Skips a directory that exists and is not a repository**, rather than writing into it.
+- **Never touches an existing `.env`.** That file holds passwords. A setup script that
+  overwrites credentials is one nobody runs twice — and the second run is exactly when it
+  is needed, because the first one is when you find out what is missing.
+
 ## Images
 
 | Service | Base | Note |
@@ -113,12 +132,28 @@ file conventions. The first Dockerfile assumed otherwise and failed on it.
 
 Against a stack brought up from nothing, because none of this is provable from the source.
 
-Nine containers up with the three infrastructure ones healthy; the administrator created
-from `.env`, logging in and holding `admin`; a model record saved with its API key sealed
-through mcp-cipher; a definition created and the catalogue published to the MCP server; a
-tool call planned, queued, run by the executor and reported `succeeded`; the result written
-back sealed under key `v1`; and five services writing into the shared log directory.
+The first pass found the four faults above and fixed them. The second was the real test:
+an empty directory, `mcp-starter` cloned **from GitHub rather than from the working copy**,
+then `./clone.sh`, then the credentials, then `docker compose up -d`. What was tested is
+what somebody else would download.
 
-Then `docker compose down -v`, and again from empty — which is how the bootstrap's second
-half was checked: on the restart the gateway says an account already exists and creates
-nothing.
+Eleven steps, and this time nothing needed fixing:
+
+| | |
+|---|---|
+| `clone.sh` | six repositories, `.env` written with their paths |
+| Containers | nine up, the three infrastructure ones healthy |
+| Administrator | created from `.env`, logs in on the first attempt |
+| Panel | `/login` answers |
+| MCP server | `status: ok` |
+| Catalogue | published from the gateway, token accepted |
+| Model record | saved with its API key sealed |
+| Definition | created, `published: 1` |
+| Tool call | planned → queued → executor → `succeeded` |
+| Result | written back sealed under key `v1` |
+| Logs | five services writing into the shared directory |
+| Restart | "an account already exists", one user |
+
+One thing had to be set by hand: `GOPROXY=direct`, because this network blocks the host
+Go's default proxy serves archives from. It is in the README's known limits, and reading it
+there is how it got set — which is the only evidence that section is worth having.
