@@ -30,14 +30,12 @@ cp .env.example .env     # fill in every blank — see below
 docker compose up -d
 ```
 
-The panel opens on http://localhost:3000. Create an account through `/register`; the
-first user arrives as a `viewer` and has to be made `admin` in the database before it
-can write:
+The panel opens on http://localhost:3000, and `MCP_ADMIN_EMAIL` /
+`MCP_ADMIN_PASSWORD` from `.env` are what you log in with: the gateway creates that
+account, once, when the users table is empty.
 
-```sh
-docker compose exec postgres psql -U mcp -d mcp \
-  -c "UPDATE users SET role = 'admin' WHERE email = 'you@example.com';"
-```
+Everyone after that registers through `/register` and arrives as a `viewer`, which an
+administrator raises from the Users page.
 
 ### The values that have no default
 
@@ -52,6 +50,15 @@ openssl rand -base64 32      # JWT_SECRET_KEY, MCP_CIPHER_KEY_V1
 **`MCP_CIPHER_KEY_V1` must decode to exactly 16, 24 or 32 bytes.** The command above
 gives 32. Anything else and mcp-cipher refuses to start, saying so — which is how it
 should be: a keyring that half works is worse than one that does not start.
+
+**`MCP_ADMIN_EMAIL` and `MCP_ADMIN_PASSWORD`** are the first administrator. The password
+has the same floor as the registration form — 12 characters — and a shorter one creates
+nothing and says so in the log. Leave both blank and the stack starts with no accounts
+at all, which is right for an installation that manages its users elsewhere.
+
+That account is created **only into an empty users table**. Not "if this email is
+missing": that would let anyone who can edit a compose file add an administrator to a
+running system.
 
 **`ROUTER_API_KEY`** is the model that turns a sentence into a tool call. Without it the
 console answers that no model is configured, and everything else still works.
