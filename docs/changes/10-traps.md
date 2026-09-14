@@ -206,3 +206,27 @@ result for the thing you were removing rather than trusting the removal:
 ```sh
 grep -hE "^[A-Za-z_0-9]+=.+" *.env.example | grep -iE "password|secret|token|key"
 ```
+
+## 127.0.0.1 means something different in a container
+
+A default of `127.0.0.1` is correct while the six services share a host and points a
+container at itself the moment they do not. It cost three separate faults the first time
+the stack ran under compose — the MCP server's address, the cipher's, and nothing else
+working until both were named as services.
+
+The same shape catches a shared secret that has a different variable name at each end:
+`MCP_SERVER_TOKEN` on one side, `PUBLISHER_TOKEN` on the other. Nothing is wrong with
+either until somebody has to set both, and then it is a `401` from a service that is up
+and answering.
+
+**Two variables that must match are two chances to set only one of them.** Feed both from
+one value where you can.
+
+## A config server's overrides reach every client
+
+`mcp-config` serves an `overrides` block to *every* application, which is written in its
+own configuration and is easy to read past. Routing an admin password through it to reach
+the gateway would have handed the same password to the panel.
+
+A secret goes to the one service that needs it, even when that means passing it outside
+the mechanism everything else uses.
