@@ -84,6 +84,27 @@ panel, the gateway, the MCP server and RabbitMQ's management UI are bound — al
 If a port is taken, `PANEL_PORT`, `GATEWAY_PORT`, `MCP_SERVER_PORT` and
 `RABBITMQ_UI_PORT` are in `.env`.
 
+## What was verified
+
+The stack was brought up from nothing and taken through a full round trip:
+
+| | |
+|---|---|
+| Nine containers | up, the three infrastructure ones healthy |
+| The administrator | created from `.env`, logs in, holds `admin` |
+| A model record | saved with its API key **sealed** through mcp-cipher |
+| A definition | created, and the catalogue published to the MCP server |
+| A tool call | planned, queued, run by the executor, `succeeded` |
+| The result | written back sealed, under key `v1` |
+| Logs | five services writing into the shared directory |
+
+Three things were wrong and are fixed. Each was an address or a name that is right when
+the services are local processes and wrong when they are containers: the gateway looked
+for the MCP server on `127.0.0.1`, the cipher address was the same, and the shared
+publish token has a different variable name at each end — `MCP_SERVER_TOKEN` on the
+gateway, `PUBLISHER_TOKEN` on the MCP server. One value in `.env` now feeds both, because
+two variables that must match are two chances to set only one of them.
+
 ## Logs
 
 Every service writes to `MCP_LOG_DIR` (`./logs` by default) as well as to its container's
@@ -112,9 +133,10 @@ where.
 
 ## Known limits
 
-- **`docker compose build` needs a working `GOPROXY`.** mcp-action depends on
-  `modernc.org/sqlite`, whose archives are served from `storage.googleapis.com`. On a
-  network that blocks it the build fails at `go mod download`; everything else builds.
+- **On a network that blocks `storage.googleapis.com`, set `GOPROXY=direct` in `.env`.**
+  The default Go proxy serves module archives from there, and the failure reads like a
+  broken build rather than a blocked one. `direct` fetches from each module's own
+  origin: slower, and it needs git in the build image, which is why it is not default.
 - **No image is published anywhere.** Every `up` builds from source. Pushing images to
   a registry would make a fresh machine faster, and would mean somewhere to push them.
 - **One replica of each.** `mcp-action` can be scaled (`docker compose up -d --scale

@@ -115,6 +115,10 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY in .env}
       ROUTER_API_KEY: ${ROUTER_API_KEY:-}
       MCP_CIPHER_TOKEN: ${MCP_CIPHER_TOKEN:?set MCP_CIPHER_TOKEN in .env}
+      # Addresses inside the network, not on the host. The defaults in the config repo
+      # are 127.0.0.1, which is correct when the services are local processes and points
+      # a container at itself when they are not.
+      MCP_CIPHER_ADDRESS: mcp-cipher:9090
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       MCP_LOG_DIR: /var/log/mcp
     volumes:
@@ -136,6 +140,10 @@ services:
   mcp-cipher:
     build:
       context: ${MCP_CIPHER_PATH:-../mcp-cipher}
+      args:
+        # Set GOPROXY=direct in .env on a network that blocks storage.googleapis.com,
+        # where the default proxy serves its archives from.
+        GOPROXY: ${GOPROXY:-}
     environment:
       <<: *config-client
       MCP_CIPHER_KEY_V1: ${MCP_CIPHER_KEY_V1:?set MCP_CIPHER_KEY_V1 in .env}
@@ -162,6 +170,14 @@ services:
       # application, so routing an admin password through it would hand it to the panel
       # as well — and the panel has no use for it. A secret goes to the one service that
       # needs it.
+      # Where the gateway publishes the catalogue and sends prompts. Only the gateway
+      # calls it, so it goes here rather than into the config server's overrides, which
+      # reach every application.
+      MCP_SERVER_URL: http://mcp-server:8000
+      # The same secret under two names: the gateway presents MCP_SERVER_TOKEN and the
+      # MCP server checks PUBLISHER_TOKEN. One value in .env feeds both, because two
+      # variables that must match are two chances to set only one of them.
+      MCP_SERVER_TOKEN: ${PUBLISHER_TOKEN:-}
       MCP_ADMIN_EMAIL: ${MCP_ADMIN_EMAIL:-}
       MCP_ADMIN_PASSWORD: ${MCP_ADMIN_PASSWORD:-}
       MCP_ADMIN_NAME: ${MCP_ADMIN_NAME:-Administrator}
@@ -201,6 +217,10 @@ services:
   mcp-action:
     build:
       context: ${MCP_ACTION_PATH:-../mcp-action}
+      args:
+        # Set GOPROXY=direct in .env on a network that blocks storage.googleapis.com,
+        # where the default proxy serves its archives from.
+        GOPROXY: ${GOPROXY:-}
     environment:
       <<: *config-client
       MCP_LOG_DIR: /var/log/mcp
