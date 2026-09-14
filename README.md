@@ -5,29 +5,39 @@ Everything needed to stand the stack up, and the reasoning behind how it is buil
 | Where | What |
 |---|---|
 | [`docker-compose.yml`](docker-compose.yml) | The whole stack: infrastructure, the schema, the six services |
+| [`clone.sh`](clone.sh) | Fetches the six repositories and writes a `.env` for them |
 | [`env/`](env/) | One environment template per service, for running them outside Docker |
 | [`observability/`](observability/) | Loki, Grafana and Alloy — where the logs go |
 | [`docs/`](docs/) | Why things are the way they are, and the database schema |
 
 ## Starting it
 
-The sources live in six repositories. Clone them wherever you like — the defaults
-assume they sit beside this one:
+The sources live in six repositories. `clone.sh` fetches them and writes a `.env`
+pointing at wherever they landed:
+
+```sh
+./clone.sh                  # into the parent directory
+./clone.sh ~/work/mcp       # or somewhere of your choosing
+./clone.sh --ssh            # over SSH rather than HTTPS
+```
+
+It is optional — if you already have the sources, point `MCP_*_PATH` at them in `.env`
+instead. Running it again updates what is there rather than re-cloning, leaves a
+repository with local changes alone, and **never touches an existing `.env`**: that file
+holds passwords, and a setup script that overwrites credentials is one nobody runs twice.
+
+Then fill in the blanks it left — see below — and:
+
+```sh
+docker compose up -d
+```
+
+Doing it by hand instead:
 
 ```sh
 git clone https://github.com/ufukpalavar52/mcp-gateway.git
-git clone https://github.com/ufukpalavar52/mcp-config.git
-git clone https://github.com/ufukpalavar52/mcp-server.git
-git clone https://github.com/ufukpalavar52/mcp-action.git
-git clone https://github.com/ufukpalavar52/mcp-cipher.git
-git clone https://github.com/ufukpalavar52/mcp-panel.git
-```
-
-Then:
-
-```sh
-cp .env.example .env     # fill in every blank — see below
-docker compose up -d
+# … and the other five, then:
+cp .env.example .env
 ```
 
 The panel opens on http://localhost:3000, and `MCP_ADMIN_EMAIL` /
