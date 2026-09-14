@@ -33,7 +33,7 @@ a database reachable from outside is a database somebody else can reach.
 
 ## What only breaks in a network
 
-Three of the four faults found here are the same fault wearing different clothes: an
+Four of the five faults found here are the same fault wearing different clothes: an
 address that is correct for a process on a laptop and wrong for one in a container.
 
 **`127.0.0.1` is the container itself.** The gateway looked for the MCP server there, and
@@ -48,12 +48,28 @@ symptom was a `401` from a service that was up and answering.
 One value in `.env` feeds both now. **Two variables that must match are two chances to set
 only one of them.**
 
+**An address the browser uses.** `GATEWAY_PORT` moves the gateway, and the panel went on
+telling the browser `8080` — the default in its file on the config server, because nothing
+filled the `${API_URL:...}` placeholder. It only shows up on a machine where something else
+holds 8080, and then the error arrives in that stranger's words:
+
+```
+No static resource api/v1/auth/login
+```
+
+Which reads like a fault in the gateway, and is a browser talking to an unrelated
+application. `API_URL` follows `GATEWAY_PORT` now.
+
+This one survived the fresh-install test because that test used the default port, where
+the wrong answer and the right one are the same string. **A default that happens to be
+correct hides the missing wiring behind it.**
+
 **A secret routed to everyone.** The first version of the admin bootstrap passed
 `MCP_ADMIN_PASSWORD` through mcp-config. That works, and it also hands the password to the
 panel: the config server's overrides reach *every* application, which is written in its own
 configuration and was read too late. It goes straight to the gateway now.
 
-## The fourth: a build that looked broken
+## The fifth: a build that looked broken
 
 `mcp-action` would not build:
 
@@ -132,7 +148,7 @@ file conventions. The first Dockerfile assumed otherwise and failed on it.
 
 Against a stack brought up from nothing, because none of this is provable from the source.
 
-The first pass found the four faults above and fixed them. The second was the real test:
+The first pass found four of the five faults above and fixed them. The second was the real test:
 an empty directory, `mcp-starter` cloned **from GitHub rather than from the working copy**,
 then `./clone.sh`, then the credentials, then `docker compose up -d`. What was tested is
 what somebody else would download.

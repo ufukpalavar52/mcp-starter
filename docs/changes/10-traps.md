@@ -222,6 +222,12 @@ and answering.
 **Two variables that must match are two chances to set only one of them.** Feed both from
 one value where you can.
 
+And a default that happens to be right hides the wiring missing behind it. `GATEWAY_PORT`
+moved the gateway while the panel went on telling the browser `8080`, because nothing
+filled the placeholder and the file's own default said 8080. It passed every test that
+used the default port — the wrong answer and the right one were the same string — and
+failed the first time something else held 8080, in that something else's words.
+
 ## A config server's overrides reach every client
 
 `mcp-config` serves an `overrides` block to *every* application, which is written in its
