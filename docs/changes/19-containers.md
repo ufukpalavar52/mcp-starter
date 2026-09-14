@@ -129,6 +129,24 @@ than once:
   overwrites credentials is one nobody runs twice — and the second run is exactly when it
   is needed, because the first one is when you find out what is missing.
 
+## What the fresh install did not cover
+
+Two things survived it, and both for the same reason: the test exercised the paths it
+knew about.
+
+**`025` and `026` were missing from the master changelog.** They had been applied by hand
+when they were written. A database built from the changelog alone has no
+`conversation_turns.arguments` and no `action_id`, and the first sentence typed into the
+console fails on the insert — 503 from the gateway, `SQLGrammarException` in its log, and
+nothing in either pointing at a migration. The install test never opened the console.
+
+**`ROUTER_API_KEY` was blank**, so routing a prompt got a 401 from the model provider. The
+test executed a tool directly, by name, which needs no router.
+
+Both are now in the note above; what they have in common is worth saying plainly: **an
+end-to-end test proves the end it went through.** The paths it skipped are not covered by
+its passing.
+
 ## Images
 
 | Service | Base | Note |

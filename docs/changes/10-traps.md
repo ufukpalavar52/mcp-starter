@@ -236,3 +236,25 @@ the gateway would have handed the same password to the panel.
 
 A secret goes to the one service that needs it, even when that means passing it outside
 the mechanism everything else uses.
+
+## A migration file is not a migration until the changelog names it
+
+`025` and `026` were applied by hand with `psql` when they were written, and the include
+lines in `db.changelog-master.yaml` were never added. Nothing noticed: the database they
+were applied to has the columns, and Liquibase has no reason to mention two files it was
+never told about.
+
+It shows only on a database built from the changelog alone — where the first sentence
+typed into the console fails on an insert, and what comes back is a 503 from the gateway
+and a Hibernate `SQLGrammarException` in its log. Nothing in either points at a migration.
+
+Two numbers settle it:
+
+```sh
+ls db/changelog/changes/*.sql | wc -l          # 26
+grep -c 'file: changes/' db.changelog-master.yaml   # 24
+```
+
+The same shape as the `.env` variable that was accepted and never sent, and the masking
+pattern that skipped the line it mattered on: **the dangerous thing is the one nothing
+reports, because nothing knows it should exist.**
