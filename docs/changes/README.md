@@ -31,6 +31,7 @@ when they ask "why is it like this?", and that somebody is usually us.
 | 17 | [17-saying-what-is-happening.md](17-saying-what-is-happening.md) | The wait before a card, and the delete dialog |
 | 18 | [18-logs.md](18-logs.md) | Loki, and getting each service to write a file |
 | 19 | [19-containers.md](19-containers.md) | Compose for the whole stack, fetching the sources, and first-run access |
+| 20 | [20-running-code.md](20-running-code.md) | Writing code from a prompt and running it: the schema built three times, a block's ceiling, and a blocklist pointing the wrong way |
 
 ## Where the tests stand
 

@@ -4,8 +4,10 @@
 *.env.local
 !*.env.example
 
-logs/*.log
-observability/logs/*.log
+# Rotated files are logs/mcp-gateway.log.2026-09-14.0.gz — the date and the .gz
+# fall outside *.log, so they turned up as untracked until somebody committed one.
+logs/*.log*
+observability/logs/*.log*
 
 # IDE files. GoLand writes these the moment a repository appears.
 .idea/
