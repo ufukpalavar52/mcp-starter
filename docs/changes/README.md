@@ -33,6 +33,7 @@ when they ask "why is it like this?", and that somebody is usually us.
 | 19 | [19-containers.md](19-containers.md) | Compose for the whole stack, fetching the sources, and first-run access |
 | 20 | [20-running-code.md](20-running-code.md) | Writing code from a prompt and running it: the schema built three times, a block's ceiling, and a blocklist pointing the wrong way |
 | 21 | [21-one-card.md](21-one-card.md) | Approving a whole plan at once, and the three places that had quietly assumed a job runs one action |
+| 22 | [22-reading-output.md](22-reading-output.md) | Making a terminal look like one, and where the colour stops: a command is known to be shell, output is not |
 
 ## Where the tests stand
 
