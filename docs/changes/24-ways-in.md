@@ -93,6 +93,25 @@ look, not only the logic. A banner, a status code and a stale toast are all thin
 system says about itself, and a system that says the wrong thing about itself is broken in
 the way that matters.
 
+## And one that really was broken, between two passing tests
+
+Found afterwards, by running the flow rather than reading it.
+
+`mustChangePassword` was written to the database and **left out of the response**. So it
+was true and inert: an administrator created an account, the column said the password
+needed changing, and nothing anywhere asked anybody to change it. The panel locks itself to
+the password screen on that field, and the field never arrived.
+
+Both sides had tests and both passed. The gateway's covered *setting* the flag. The panel's
+covered *reacting* to it — on a session object the test constructed by hand. **Nothing
+covered the field that joins them, which is precisely the one that did not exist.**
+
+A hand-built fixture is a claim about what the other side sends. It is a reasonable claim
+and it is not evidence, and the gap between those two is exactly the size of this bug.
+
+What caught it was creating an account, signing in as it, and noticing that the screen which
+was supposed to stop there did not.
+
 ## Smaller things, kept
 
 A secret that another definition still references survives that definition's deletion.
@@ -113,7 +132,9 @@ four misleading faults was invisible from the source alone.
 |---|---|
 | Registration | `/auth/register` is gone, 404 |
 | Invitation | created, mailed, accepted once, refused the second time |
-| Administrator's password | account active, panel locked to the password screen |
+| Administrator's password | account active, flag in the login response, locked to the password screen |
+| Wrong password on that screen | refused with the session left intact |
+| After changing it | flag clear, old password dead |
 | Forgotten password | same answer either way; link works once; sessions revoked |
 | Wrong current password | refused without signing anybody out |
 | Mail | delivered to a local catcher, in the panel's own colours |
