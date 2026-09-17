@@ -181,6 +181,19 @@ services:
       MCP_ADMIN_EMAIL: ${MCP_ADMIN_EMAIL:-}
       MCP_ADMIN_PASSWORD: ${MCP_ADMIN_PASSWORD:-}
       MCP_ADMIN_NAME: ${MCP_ADMIN_NAME:-Administrator}
+      # Invitations are mail, and an invitation that cannot be sent is not created. Only
+      # the gateway sends any, so these go straight here rather than through the config
+      # server's overrides, which reach every application.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      SMTP_SSL: ${SMTP_SSL:-false}
+      # The link in the mail points at the panel, which this service cannot work out.
+      PANEL_URL: ${PANEL_URL:-http://localhost:${PANEL_PORT:-3000}}
       MCP_LOG_DIR: /var/log/mcp
     ports:
       - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
