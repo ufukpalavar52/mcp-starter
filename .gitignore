@@ -11,3 +11,9 @@ observability/logs/*.log*
 
 # IDE files. GoLand writes these the moment a repository appears.
 .idea/
+
+# Exported definitions. What a tool does, which hosts it reaches and the system prompt that
+# drives it live only in the database, so export-definitions.sh writes them here — but an
+# export carries the sealed model key, the sealed SSH key and the addresses of real
+# machines. Sealed is not the same as safe to publish.
+definitions/
