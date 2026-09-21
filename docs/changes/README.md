@@ -36,6 +36,7 @@ when they ask "why is it like this?", and that somebody is usually us.
 | 22 | [22-reading-output.md](22-reading-output.md) | Making a terminal look like one, and where the colour stops: a command is known to be shell, output is not |
 | 23 | [23-who-may-run-what.md](23-who-may-run-what.md) | Per-definition access: an explicit mode rather than an empty list, and why the prompt path is enforced by not offering the tool |
 | 24 | [24-ways-in.md](24-ways-in.md) | Invitations, an administrator's password, forgotten passwords — four faults where the code worked and the screen said otherwise, and one that hid between two passing tests |
+| 25 | [25-nobody-was-listening.md](25-nobody-was-listening.md) | An executor that retried the broker for thirty-seven hours at an address it should have re-read, and a screen that said "waiting for the result" the whole time |
 
 ## Where the tests stand
 
