@@ -83,6 +83,41 @@ The banner now says the screen runs the tool for real, in **warning colours with
 mark** rather than blue under a shield, and the button reads "Run the tool" rather than
 "Build the plan" — which described what it did before it dispatched.
 
+## Deploying the fix exposed the next one
+
+Restarting the MCP server to pick up the gate emptied its catalogue, and every call came
+back:
+
+> Unknown tool: rock_linux_logs. Publish the catalogue first.
+
+That service holds its catalogue in memory and fetches nothing, which is deliberate and
+written at the top of `catalogue.py`: the alternative is it holding gateway credentials and
+reaching back. An empty catalogue at start up is the accepted price.
+
+The price was being paid by a person. Nobody noticed the empty catalogue, so somebody
+republished by hand — twice in one day.
+
+The party that can fix it is the gateway. It owns the definitions, it already holds the
+credentials, and it was being told the problem in plain words and passing them to the user.
+So a 404 from a tool call now republishes the catalogue and asks once more.
+
+**On the status, not the sentence.** A 404 for a tool this service published means the two
+copies have diverged, whatever words came with it. Matching the message would tie the
+gateway to a string in another repository that nobody would think to keep in step.
+
+**Once.** If a fresh catalogue does not have the tool, the tool really is gone, and a second
+attempt turns a clear answer into a loop.
+
+The MCP server's design is untouched — it still fetches nothing and holds no credentials.
+What changed is that the service which *can* recover now does, instead of forwarding the
+instruction to a human.
+
+That makes three of these in two days: an executor that retried a broker forever and never
+re-read its configuration, an approval flag that was rendered and never enforced, and a
+catalogue whose owner was told it was missing and did nothing. **The recurring shape is not
+a missing capability — it is a component holding everything it needs to recover and not
+asking.**
+
 ## What stayed out
 
 **An approve button on the tool screen.** It would need the endpoint to accept an agreement
@@ -102,3 +137,7 @@ flag, which is the shape of the original bug.
 | the refusal's wording | names the console |
 | action without the box | dispatches exactly as before |
 | a rejected plan | reaches the dispatcher, not the gate |
+| a 404 for a published tool | catalogue republished, call retried once |
+| still unknown afterwards | reported, not retried again |
+| any other refusal | passed through, nothing republished |
+| a call that works | nothing republished |
