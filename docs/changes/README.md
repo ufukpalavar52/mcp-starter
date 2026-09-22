@@ -37,6 +37,7 @@ when they ask "why is it like this?", and that somebody is usually us.
 | 23 | [23-who-may-run-what.md](23-who-may-run-what.md) | Per-definition access: an explicit mode rather than an empty list, and why the prompt path is enforced by not offering the tool |
 | 24 | [24-ways-in.md](24-ways-in.md) | Invitations, an administrator's password, forgotten passwords — four faults where the code worked and the screen said otherwise, and one that hid between two passing tests |
 | 25 | [25-nobody-was-listening.md](25-nobody-was-listening.md) | An executor that retried the broker for thirty-seven hours at an address it should have re-read, and a screen that said "waiting for the result" the whole time |
+| 26 | [26-the-box-nothing-stood-on.md](26-the-box-nothing-stood-on.md) | "This action requires approval" was drawn on the screen and ignored by the code that dispatches — the approval gate existed, on one path of two |
 
 ## Where the tests stand
 
