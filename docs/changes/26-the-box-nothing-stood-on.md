@@ -136,6 +136,13 @@ and one decision, in the screen that asked.
 The comparison is unchanged and is the whole guarantee — approve `tail -f /var/log/messages`
 and a re-plan that comes back with anything else is refused, not run.
 
+One more sentence that was true and useless. The per-action line reads
+`requires_approval`, which is a property of the action and stays true after the command
+has been approved and dispatched — so "This action requires approval" sat next to a
+command that had just run, and read as the approval having failed. It is shown only while
+the plan is actually waiting now. Sixth time; the tell is always a fact being displayed
+where a state was meant.
+
 Skipped actions are left out of what gets sent back. They resolve to nothing, because there
 was no point resolving what will not run, and including them would fail the comparison for
 every definition with more than one action.
