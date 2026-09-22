@@ -118,11 +118,29 @@ catalogue whose owner was told it was missing and did nothing. **The recurring s
 a missing capability — it is a component holding everything it needs to recover and not
 asking.**
 
-## What stayed out
+## Approving where you are standing
 
-**An approve button on the tool screen.** It would need the endpoint to accept an agreement
-and to re-check that the plan still matches it — the whole `_matches` apparatus the prompt
-path has. Worth doing; not worth doing in the same change as closing the hole.
+Closing the hole left the screen honest and inconvenient: an action that needed approval
+could not be run from the tool screen at all, and the refusal said to go to the console.
+
+The obvious request followed — could the approval be given up front? It cannot, and the
+reason is worth keeping rather than working around. **Approval is of a command, not of an
+intention.** Planning is not deterministic; a step once proposed as `systemctl start httpd`
+was re-planned on the way to running and came back as an install, which is why `_matches`
+exists at all. Agreeing before a plan exists is agreeing to whatever the model writes next.
+
+What *can* be removed is the detour. The endpoint now accepts the same `expect` the prompt
+path has always carried, so the flow is: ask, read the command, click approve. Two calls
+and one decision, in the screen that asked.
+
+The comparison is unchanged and is the whole guarantee — approve `tail -f /var/log/messages`
+and a re-plan that comes back with anything else is refused, not run.
+
+Skipped actions are left out of what gets sent back. They resolve to nothing, because there
+was no point resolving what will not run, and including them would fail the comparison for
+every definition with more than one action.
+
+## What stayed out
 
 **Making the gateway enforce it too.** The check belongs where the dispatch happens, and
 that is here. A second enforcement in the gateway would be a second opinion about the same
@@ -141,3 +159,8 @@ flag, which is the shape of the original bug.
 | still unknown afterwards | reported, not retried again |
 | any other refusal | passed through, nothing republished |
 | a call that works | nothing republished |
+| the command shown, sent back | dispatched |
+| a different command approved | refused, not run |
+| a first ask, nothing approved | awaiting approval |
+| the panel's first call | carries no approval |
+| nothing waiting | no approve button |
