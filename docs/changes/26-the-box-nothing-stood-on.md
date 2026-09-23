@@ -147,6 +147,32 @@ Skipped actions are left out of what gets sent back. They resolve to nothing, be
 was no point resolving what will not run, and including them would fail the comparison for
 every definition with more than one action.
 
+## Which action, on a screen with no sentence
+
+Testing the flow on a three-action definition never reached the approval gate. The plan
+came back empty:
+
+> This tool has several actions and the request said which in no words at all.
+
+Which action a request wants is what a **sentence** decides, and this screen has none — it
+fills in a JSON Schema, which is the point of it. So `rock_linux_script` and
+`user_definition_processes` could not be run from the tool screen at all, and said so only
+after the form was filled in and the button pressed.
+
+The planner already takes a named action: `action_id` short-circuits the choice before the
+"no sentence" problem, and the prompt path has used it since a goal-loop step needed to
+take up an action the plan set aside. It was simply never offered on the direct path.
+
+So the modal asks. `actionCount > 1` fetches the definition for the names, draws a picker
+above the fields, and sends `actionId`. A single-action tool is asked nothing and sends
+nothing — there is no choice to make, and an id on the wire that means nothing is worse
+than no id.
+
+Naming an action **removes** the question rather than answering it: no model call to
+choose, and no chance of a different choice next time. An id that is not part of the tool
+is refused rather than ignored, because a caller naming one has a bug or a stale screen
+and planning something else would hide both.
+
 ## What stayed out
 
 **Making the gateway enforce it too.** The check belongs where the dispatch happens, and
@@ -166,6 +192,10 @@ flag, which is the shape of the original bug.
 | still unknown afterwards | reported, not retried again |
 | any other refusal | passed through, nothing republished |
 | a call that works | nothing republished |
+| several actions, none named | nothing planned |
+| several actions, one named | that one plans, the rest set aside |
+| an action of another tool | refused, not ignored |
+| one action | no picker, no id sent |
 | the command shown, sent back | dispatched |
 | a different command approved | refused, not run |
 | a first ask, nothing approved | awaiting approval |
