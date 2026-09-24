@@ -173,6 +173,39 @@ choose, and no chance of a different choice next time. An id that is not part of
 is refused rather than ignored, because a caller naming one has a bug or a stale screen
 and planning something else would hide both.
 
+## The connection that died quietly
+
+The end-to-end test of all this passed every gate and then failed to run, five seconds in:
+
+> could not open the private key: rpc error: code = DeadlineExceeded
+
+Five seconds is the cipher timeout to the millisecond, and mcp-cipher's log had nothing for
+that day at all. The call never arrived.
+
+The executor builds one gRPC client to mcp-cipher and keeps it for the life of the process.
+That client was built on 21 September and last spoke on the 22nd. Nothing between two
+containers announces that it has dropped an idle connection — not a docker network, not a
+NAT table — so the client went on believing it was connected, and the next call blocked
+until its deadline.
+
+In those same two days the same process noticed and repaired its **broker** connection
+twice. One transport was watched; the other was not.
+
+gRPC watches a connection if you ask it to: ping every thirty seconds, and a silent death
+becomes a failed ping that it answers by reconnecting. `PermitWithoutStream` is the half
+that matters, because without it the pings stop whenever no call is in flight — which is
+exactly the idle stretch that kills the connection.
+
+**And the server had to agree.** gRPC's default policy treats a ping more often than every
+five minutes, with no call in flight, as abuse and closes the connection for it. Adding
+keepalive to the client alone would have replaced a connection that died after two days
+with one that died after thirty seconds. mcp-cipher now permits it: twenty seconds, which
+leaves the client's thirty a margin so clock drift is not read as an attack.
+
+No unit test. The behaviour needs a real network and minutes of idleness to appear; a test
+that fits in a suite would assert the constant against itself. The verification is
+operational, and it is in the table below with that said plainly.
+
 ## What stayed out
 
 **Making the gateway enforce it too.** The check belongs where the dispatch happens, and
@@ -196,6 +229,8 @@ flag, which is the shape of the original bug.
 | several actions, one named | that one plans, the rest set aside |
 | an action of another tool | refused, not ignored |
 | one action | no picker, no id sent |
+| the approval flow, end to end | verified live: gate, choice, match, refusal |
+| the keepalive | operational — no unit test claims it |
 | the command shown, sent back | dispatched |
 | a different command approved | refused, not run |
 | a first ask, nothing approved | awaiting approval |
